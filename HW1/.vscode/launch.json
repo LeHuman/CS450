@@ -8,10 +8,10 @@
             "name": "gcc - Build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "program": "${workspaceFolder}\\hwsh.out",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -20,7 +20,16 @@
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
-                }
+                },
+                {
+                    "description": "pass sigs",
+                    "text": "handle SIGINT SIGQUIT SIGTSTP stop print pass"
+                },
+                // {
+                //     "description": "Trace children",
+                //     "text": "-gdb-set follow-fork-mode child",
+                //     "ignoreFailures": true
+                // },
             ],
             "preLaunchTask": "build",
             "miDebuggerPath": "/usr/bin/gdb"

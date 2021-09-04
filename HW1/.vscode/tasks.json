@@ -6,6 +6,7 @@
             "label": "build",
             "command": "/usr/bin/gcc",
             "args": [
+                "-g",
                 "-o",
                 "hwsh.out",
                 "hwsh.c",
