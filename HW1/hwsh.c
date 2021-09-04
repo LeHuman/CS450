@@ -85,24 +85,30 @@ int getcmd(char *buf, int nbuf) {
     return 0;
 }
 
-int main(void) {
-    static char buf[100];
-    int fd, r;
+/**
+ * @brief Main function of shell
+ * 
+ * @return int
+ */
+int main() {
+    static char cmdBuf[100];
+    int childStatus;
 
-    // Read and run input commands.
-    while (getcmd(buf, sizeof(buf)) >= 0) {
-        if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') {
-            // Clumsy but will have to do for now.
-            // Chdir has no effect on the parent if run in the child.
-            buf[strlen(buf) - 1] = 0; // chop \n
-            if (chdir(buf + 3) < 0)
-                fprintf(stderr, "cannot cd %s\n", buf + 3);
-            continue;
-        }
-        if (fork1() == 0)
-            runcmd(parsecmd(buf));
-        wait(&r);
+    int emit_prompt = isatty(fileno(stdin));
+
+    // Read and run input commands
+    while (1) {
+        if (emit_prompt)
+            fprintf(stdout, "$CS450 ");
+
+        getcmd(cmdBuf, sizeof(cmdBuf));
+
+        if (fork() == 0)
+            runcmd(parsecmd(cmdBuf));
+
+        wait(&childStatus);
     }
+
     exit(0);
 }
 
