@@ -56,10 +56,8 @@ void runcmd(struct cmd *cmd) {
         exit(-1);
     case ' ':
         ecmd = (struct execcmd *)cmd;
-        if (ecmd->argv[0] == 0)
-            exit(0);
-        fprintf(stderr, "exec not implemented\n");
-        // Your code here ...
+        if (execvp(ecmd->argv[0], ecmd->argv) < 0)
+            printf("%s: Command not found\n", ecmd->argv[0]);
         break;
     case '>':
     case '<':
