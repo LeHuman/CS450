@@ -23,18 +23,16 @@ struct execcmd {
     char *argv[MAXARGS]; // arguments to the command to be exec-ed
 };
 
-struct redircmd {
-    int type;        // < or >
-    struct cmd *cmd; // the command to be run (e.g., an execcmd)
-    char *file;      // the input/output file
-    int mode;        // the mode to open the file with
-    int fd;          // the file descriptor number to use for the file
+struct sequencecmd {
+    int type;         // ;
+    struct cmd *cmd;  // the command to be run
+    struct cmd *next; // next cmd to be run
 };
 
-struct pipecmd {
-    int type;          // |
-    struct cmd *left;  // left side of pipe
-    struct cmd *right; // right side of pipe
+struct parallelcmd {
+    int type;         // &
+    struct cmd *cmd;  // the command to be run
+    struct cmd *next; // next cmd to be run in parallel
 };
 
 int fork1(void); // Fork but exits on failure.
@@ -44,32 +42,41 @@ struct cmd *parsecmd(char *);
 void runcmd(struct cmd *cmd) {
     int p[2], r;
     struct execcmd *ecmd;
-    struct pipecmd *pcmd;
-    struct redircmd *rcmd;
+    struct sequencecmd *scmd;
+    struct parallelcmd *prcmd;
 
     if (cmd == 0)
         exit(0);
 
     switch (cmd->type) {
     default:
-        fprintf(stderr, "unknown runcmd\n");
+        fprintf(stderr, "Invalid Syntax\n");
         exit(-1);
     case ' ':
         ecmd = (struct execcmd *)cmd;
-        if (execvp(ecmd->argv[0], ecmd->argv) < 0)
+        if (execvp(ecmd->argv[0], ecmd->argv) < 0) // Execute command, printing error if not found
             printf("%s: Command not found\n", ecmd->argv[0]);
         break;
-    case '>':
-    case '<':
-        rcmd = (struct redircmd *)cmd;
-        fprintf(stderr, "redir not implemented\n");
-        // Your code here ...
-        runcmd(rcmd->cmd);
+    case ';':
+        scmd = (struct sequencecmd *)cmd;
+        if (fork() == 0)
+            runcmd(scmd->cmd);
+        wait(&r);
+        runcmd(scmd->next);
         break;
-    case '|':
-        pcmd = (struct pipecmd *)cmd;
-        fprintf(stderr, "pipe not implemented\n");
-        // Your code here ...
+    case '&':
+        prcmd = (struct parallelcmd *)cmd;
+        while (prcmd != NULL) {
+            if (fork() == 0)
+                runcmd(prcmd->cmd);
+            prcmd = (struct parallelcmd *)prcmd->next;
+        }
+        while (1) { // wait for all child processes to finish
+            int status;
+            if (wait(&status) == -1) {
+                break; // no more child processes
+            }
+        }
         break;
     }
     exit(0);
@@ -90,7 +97,7 @@ int getcmd(char *buf, int nbuf) {
  */
 int main() {
     static char cmdBuf[100];
-    int childStatus;
+    int r;
 
     int emit_prompt = isatty(fileno(stdin));
 
@@ -104,7 +111,7 @@ int main() {
         if (fork() == 0)
             runcmd(parsecmd(cmdBuf));
 
-        wait(&childStatus);
+        wait(&r);
     }
 
     exit(0);
@@ -128,34 +135,10 @@ struct cmd *execcmd(void) {
     return (struct cmd *)cmd;
 }
 
-struct cmd *redircmd(struct cmd *subcmd, char *file, int type) {
-    struct redircmd *cmd;
-
-    cmd = malloc(sizeof(*cmd));
-    memset(cmd, 0, sizeof(*cmd));
-    cmd->type = type;
-    cmd->cmd = subcmd;
-    cmd->file = file;
-    cmd->mode = (type == '<') ? O_RDONLY : O_WRONLY | O_CREAT | O_TRUNC;
-    cmd->fd = (type == '<') ? 0 : 1;
-    return (struct cmd *)cmd;
-}
-
-struct cmd *pipecmd(struct cmd *left, struct cmd *right) {
-    struct pipecmd *cmd;
-
-    cmd = malloc(sizeof(*cmd));
-    memset(cmd, 0, sizeof(*cmd));
-    cmd->type = '|';
-    cmd->left = left;
-    cmd->right = right;
-    return (struct cmd *)cmd;
-}
-
 // Parsing
 
 char whitespace[] = " \t\r\n\v";
-char symbols[] = "<|>";
+char symbols[] = "<|>;&";
 
 int gettoken(char **ps, char *es, char **q, char **eq) {
     char *s;
@@ -170,11 +153,8 @@ int gettoken(char **ps, char *es, char **q, char **eq) {
     switch (*s) {
     case 0:
         break;
-    case '|':
-    case '<':
-        s++;
-        break;
-    case '>':
+    case ';':
+    case '&':
         s++;
         break;
     default:
@@ -203,7 +183,6 @@ int peek(char **ps, char *es, char *toks) {
 }
 
 struct cmd *parseline(char **, char *);
-struct cmd *parsepipe(char **, char *);
 struct cmd *parseexec(char **, char *);
 
 // make a copy of the characters in the input buffer, starting from s through es.
@@ -217,12 +196,27 @@ char *mkcopy(char *s, char *es) {
     return c;
 }
 
+static int invalid = 0; // Whether the current cmd is invalid
+
 struct cmd *parsecmd(char *s) {
     char *es;
     struct cmd *cmd;
 
-    es = s + strlen(s);
+    int len = strlen(s);
+    es = s + len;
+
+    invalid = peek(&s, es, "&"); // Invalid check
+
     cmd = parseline(&s, es);
+
+    if (invalid) {
+        invalid = 0;
+
+        cmd = parseexec(&s, es);
+        cmd->type = -1;
+        return cmd;
+    }
+
     peek(&s, es, "");
     if (s != es) {
         fprintf(stderr, "leftovers: %s\n", s);
@@ -231,42 +225,75 @@ struct cmd *parsecmd(char *s) {
     return cmd;
 }
 
-struct cmd *parseline(char **ps, char *es) {
-    struct cmd *cmd;
-    cmd = parsepipe(ps, es);
-    return cmd;
+struct cmd *parallelcmd(struct cmd *set_cmd, struct cmd *next) {
+    struct parallelcmd *cmd;
+
+    cmd = malloc(sizeof(*cmd));
+    memset(cmd, 0, sizeof(*cmd));
+    cmd->type = '&';
+    cmd->cmd = set_cmd;
+    cmd->next = next;
+    return (struct cmd *)cmd;
 }
 
-struct cmd *parsepipe(char **ps, char *es) {
+struct cmd *sequencecmd(struct cmd *set_cmd, struct cmd *next) {
+    struct sequencecmd *cmd;
+
+    cmd = malloc(sizeof(*cmd));
+    memset(cmd, 0, sizeof(*cmd));
+    cmd->type = ';';
+    cmd->cmd = set_cmd;
+    cmd->next = next;
+    return (struct cmd *)cmd;
+}
+
+struct cmd *parseparallel(char **ps, char *es) {
     struct cmd *cmd;
+    static int expecting = 0; // parallel command is expecting another cmd
+
+    // End of cmd reached when expecting
+    if (expecting && **ps == 0) {
+        invalid = 1;
+        expecting = 0;
+        return cmd;
+    }
 
     cmd = parseexec(ps, es);
-    if (peek(ps, es, "|")) {
-        gettoken(ps, es, 0, 0);
-        cmd = pipecmd(cmd, parsepipe(ps, es));
+
+    int hasSymbol = peek(ps, es, "&");
+    if (hasSymbol || expecting) {
+        expecting = hasSymbol || !expecting;
+
+        if (expecting) {
+            gettoken(ps, es, 0, 0);
+            // End of cmd reached when expecting
+            if (peek(ps, es, ";")) {
+                expecting = 0;
+                invalid = 1;
+                return cmd;
+            }
+        }
+        cmd = parallelcmd(cmd, parseparallel(ps, es));
     }
     return cmd;
 }
 
-struct cmd *parseredirs(struct cmd *cmd, char **ps, char *es) {
-    int tok;
-    char *q, *eq;
+struct cmd *parsesequence(char **ps, char *es) {
+    struct cmd *cmd;
 
-    while (peek(ps, es, "<>")) {
-        tok = gettoken(ps, es, 0, 0);
-        if (gettoken(ps, es, &q, &eq) != 'a') {
-            fprintf(stderr, "missing file for redirection\n");
-            exit(-1);
-        }
-        switch (tok) {
-        case '<':
-            cmd = redircmd(cmd, mkcopy(q, eq), '<');
-            break;
-        case '>':
-            cmd = redircmd(cmd, mkcopy(q, eq), '>');
-            break;
-        }
+    cmd = parseparallel(ps, es);
+
+    if (peek(ps, es, ";")) {
+        gettoken(ps, es, 0, 0);
+        cmd = sequencecmd(cmd, parseline(ps, es));
     }
+
+    return cmd;
+}
+
+struct cmd *parseline(char **ps, char *es) {
+    struct cmd *cmd;
+    cmd = parsesequence(ps, es);
     return cmd;
 }
 
@@ -280,8 +307,7 @@ struct cmd *parseexec(char **ps, char *es) {
     cmd = (struct execcmd *)ret;
 
     argc = 0;
-    ret = parseredirs(ret, ps, es);
-    while (!peek(ps, es, "|")) {
+    while (!peek(ps, es, ";&")) {
         if ((tok = gettoken(ps, es, &q, &eq)) == 0)
             break;
         if (tok != 'a') {
@@ -294,7 +320,6 @@ struct cmd *parseexec(char **ps, char *es) {
             fprintf(stderr, "too many args\n");
             exit(-1);
         }
-        ret = parseredirs(ret, ps, es);
     }
     cmd->argv[argc] = 0;
     return ret;
