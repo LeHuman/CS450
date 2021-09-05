@@ -205,8 +205,6 @@ struct cmd *parsecmd(char *s) {
     int len = strlen(s);
     es = s + len;
 
-    invalid = peek(&s, es, "&"); // Invalid check
-
     cmd = parseline(&s, es);
 
     if (invalid) {
@@ -293,7 +291,8 @@ struct cmd *parsesequence(char **ps, char *es) {
 
 struct cmd *parseline(char **ps, char *es) {
     struct cmd *cmd;
-    cmd = parsesequence(ps, es);
+    if (!(invalid = peek(ps, es, "&"))) // Invalid check
+        cmd = parsesequence(ps, es);
     return cmd;
 }
 
