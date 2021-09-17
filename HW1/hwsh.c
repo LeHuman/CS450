@@ -1,3 +1,10 @@
+/**
+ *  Illinois Institute of Technology - CS 450
+ *  Operating Systems
+ *  Programming Assignment 1
+ *  9-16-21
+ */
+
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -7,8 +14,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-// Simplifed xv6 shell.
 
 #define MAXARGS 10
 
@@ -23,12 +28,20 @@ struct execcmd {
     char *argv[MAXARGS]; // arguments to the command to be exec-ed
 };
 
+/**
+ * The sequence `;` operator struct
+ * implemented similarly to the redircmd
+ */
 struct sequencecmd {
     int type;         // ;
     struct cmd *cmd;  // the command to be run
     struct cmd *next; // next cmd to be run
 };
 
+/**
+ * The parallel `&` operator struct
+ * implemented similarly to the pipecmd
+ */
 struct parallelcmd {
     int type;         // &
     struct cmd *cmd;  // the command to be run
@@ -42,8 +55,8 @@ struct cmd *parsecmd(char *);
 void runcmd(struct cmd *cmd) {
     int p[2], r;
     struct execcmd *ecmd;
-    struct sequencecmd *scmd;
-    struct parallelcmd *prcmd;
+    struct sequencecmd *scmd;  // Allocated sequencecmd if needed
+    struct parallelcmd *prcmd; // Allocated parallelcmd if needed
 
     if (cmd == 0)
         exit(0);
@@ -52,26 +65,26 @@ void runcmd(struct cmd *cmd) {
     default:
         fprintf(stderr, "Invalid Syntax\n");
         exit(-1);
-    case ' ':
+    case ' ': // Normal command with no operator
         ecmd = (struct execcmd *)cmd;
         if (execvp(ecmd->argv[0], ecmd->argv) < 0) // Execute command, printing error if not found
             printf("%s: Command not found\n", ecmd->argv[0]);
         break;
-    case ';':
-        scmd = (struct sequencecmd *)cmd;
+    case ';':                             // Command with a sequence
+        scmd = (struct sequencecmd *)cmd; // Get the sequence cmd from this cmd
         if (fork() == 0)
-            runcmd(scmd->cmd);
-        wait(&r);
-        runcmd(scmd->next);
+            runcmd(scmd->cmd); // Fork and run the first part of the sequence
+        wait(&r);              // Wait for it to finish
+        runcmd(scmd->next);    // Run next cmd in this sequence
         break;
-    case '&':
-        prcmd = (struct parallelcmd *)cmd;
-        while (prcmd != NULL) {
+    case '&':                              // Command with a parallel
+        prcmd = (struct parallelcmd *)cmd; // Get the parallel cmd from this cmd
+        while (prcmd != NULL) {            // Continually fork and run the command but do not wait, making them run in parallel
             if (fork() == 0)
                 runcmd(prcmd->cmd);
             prcmd = (struct parallelcmd *)prcmd->next;
         }
-        while (1) { // wait for all child processes to finish
+        while (1) { // Wait for all child processes to finish
             int status;
             if (wait(&status) == -1) {
                 break; // no more child processes
@@ -102,9 +115,11 @@ int main() {
     int emit_prompt = isatty(fileno(stdin));
 
     // Read and run input commands
-    while (1) {
+    while (1) { // While loop is not infinite, just to help with printing the prompt
         if (emit_prompt)
             fprintf(stdout, "$CS450 ");
+
+        // cd code removed
 
         getcmd(cmdBuf, sizeof(cmdBuf));
 
@@ -135,6 +150,8 @@ struct cmd *execcmd(void) {
     return (struct cmd *)cmd;
 }
 
+// redircmd and pipecmd implements removed
+
 // Parsing
 
 char whitespace[] = " \t\r\n\v";
@@ -153,7 +170,7 @@ int gettoken(char **ps, char *es, char **q, char **eq) {
     switch (*s) {
     case 0:
         break;
-    case ';':
+    case ';': // Check for cases we only care about
     case '&':
         s++;
         break;
@@ -207,10 +224,10 @@ struct cmd *parsecmd(char *s) {
 
     cmd = parseline(&s, es);
 
-    if (invalid) {
+    if (invalid) { // If current cmd has been deemed invalid, return an invalid cmd to indicate an error
         invalid = 0;
 
-        cmd = parseexec(&s, es);
+        cmd = parseexec(&s, es); // Dummy cmd
         cmd->type = -1;
         return cmd;
     }
@@ -223,6 +240,7 @@ struct cmd *parsecmd(char *s) {
     return cmd;
 }
 
+// The struct used for parallel commands
 struct cmd *parallelcmd(struct cmd *set_cmd, struct cmd *next) {
     struct parallelcmd *cmd;
 
@@ -230,10 +248,11 @@ struct cmd *parallelcmd(struct cmd *set_cmd, struct cmd *next) {
     memset(cmd, 0, sizeof(*cmd));
     cmd->type = '&';
     cmd->cmd = set_cmd;
-    cmd->next = next;
+    cmd->next = next; // Parallel cmds to be run are denoted through a linked list
     return (struct cmd *)cmd;
 }
 
+// The struct used for sequential commands
 struct cmd *sequencecmd(struct cmd *set_cmd, struct cmd *next) {
     struct sequencecmd *cmd;
 
@@ -241,15 +260,16 @@ struct cmd *sequencecmd(struct cmd *set_cmd, struct cmd *next) {
     memset(cmd, 0, sizeof(*cmd));
     cmd->type = ';';
     cmd->cmd = set_cmd;
-    cmd->next = next;
+    cmd->next = next; // Sequence is denoted through a linked list
     return (struct cmd *)cmd;
 }
 
+// Parse a parallel command
 struct cmd *parseparallel(char **ps, char *es) {
     struct cmd *cmd;
     static int expecting = 0; // parallel command is expecting another cmd
 
-    // End of cmd reached when expecting
+    // End of cmd reached when expecting, cmd invalid
     if (expecting && **ps == 0) {
         invalid = 1;
         expecting = 0;
@@ -258,44 +278,47 @@ struct cmd *parseparallel(char **ps, char *es) {
 
     cmd = parseexec(ps, es);
 
-    int hasSymbol = peek(ps, es, "&");
-    if (hasSymbol || expecting) {
+    int hasSymbol = peek(ps, es, "&"); // Is this a parallel command?
+    if (hasSymbol || expecting) {      // This IS a parallel command or we are expecting another command to run in parallel
         expecting = hasSymbol || !expecting;
 
         if (expecting) {
-            gettoken(ps, es, 0, 0);
-            // End of cmd reached when expecting
+            gettoken(ps, es, 0, 0); // Remove the operator
+            // End of cmd reached when expecting, throw invalid
             if (peek(ps, es, ";")) {
                 expecting = 0;
                 invalid = 1;
                 return cmd;
             }
         }
-        cmd = parallelcmd(cmd, parseparallel(ps, es));
+        cmd = parallelcmd(cmd, parseparallel(ps, es)); // Create a parallel cmd
     }
     return cmd;
 }
 
+// Parse a sequential command
 struct cmd *parsesequence(char **ps, char *es) {
     struct cmd *cmd;
 
-    cmd = parseparallel(ps, es);
+    cmd = parseparallel(ps, es); // Set to a parallel command if it is
 
-    if (peek(ps, es, ";")) {
-        gettoken(ps, es, 0, 0);
+    if (peek(ps, es, ";")) {    // Is there a sequential command?
+        gettoken(ps, es, 0, 0); // Remove the operator
         cmd = sequencecmd(cmd, parseline(ps, es));
     }
 
     return cmd;
 }
 
+// Inital parseing of a line, eventually checks through every operator
 struct cmd *parseline(char **ps, char *es) {
     struct cmd *cmd;
-    if (!(invalid = peek(ps, es, "&"))) // Invalid check
-        cmd = parsesequence(ps, es);
+    if (!(invalid = peek(ps, es, "&"))) // cmd is invalid if it starts with `&`
+        cmd = parsesequence(ps, es);    // Set to a sequential command if it is
     return cmd;
 }
 
+// parse a normal command
 struct cmd *parseexec(char **ps, char *es) {
     char *q, *eq;
     int tok, argc;
@@ -306,7 +329,7 @@ struct cmd *parseexec(char **ps, char *es) {
     cmd = (struct execcmd *)ret;
 
     argc = 0;
-    while (!peek(ps, es, ";&")) {
+    while (!peek(ps, es, ";&")) { // Only check for what we care about
         if ((tok = gettoken(ps, es, &q, &eq)) == 0)
             break;
         if (tok != 'a') {
