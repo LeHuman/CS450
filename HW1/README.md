@@ -7,7 +7,6 @@ Run the following command in a Linux system with build-essential installed.
 I used Debian.
 > gcc -o hwsh.out hwsh.c
 
-
 ### How to run
 
 Run the following command after the binary is generated.
@@ -27,9 +26,11 @@ echo 1;
 echo 1;echo 2
 echo 1;echo 2;
 echo 1 &                X
+echo 1 &;               X
 echo 1&echo 2
 echo 1 &echo 2&         X
 echo 1&echo 2;
+echo 1&echo 2&;         X
 echo 1;&echo 2;         X
 echo 1  &echo 2; echo 3
 echo 1&echo 2;echo 4;
