@@ -267,26 +267,26 @@ struct cmd *sequencecmd(struct cmd *set_cmd, struct cmd *next) {
 // Parse a parallel command
 struct cmd *parseparallel(char **ps, char *es) {
     struct cmd *cmd;
-    static int expecting = 0; // parallel command is expecting another cmd
+    static int expectingParallel = 0; // parallel command is expecting another cmd
 
     // End of cmd reached when expecting, cmd invalid
-    if (expecting && **ps == 0) {
+    if (expectingParallel && **ps == 0) {
         invalid = 1;
-        expecting = 0;
+        expectingParallel = 0;
         return cmd;
     }
 
     cmd = parseexec(ps, es);
 
-    int hasSymbol = peek(ps, es, "&"); // Is this a parallel command?
-    if (hasSymbol || expecting) {      // This IS a parallel command or we are expecting another command to run in parallel
-        expecting = hasSymbol || !expecting;
+    int hasSymbol = peek(ps, es, "&");                // Is this a parallel command?
+    if (!invalid && hasSymbol || expectingParallel) { // This IS a parallel command or we are expecting another command to run in parallel
+        expectingParallel = hasSymbol || !expectingParallel;
 
-        if (expecting) {
+        if (expectingParallel) {
             gettoken(ps, es, 0, 0); // Remove the operator
             // End of cmd reached when expecting, throw invalid
             if (peek(ps, es, ";")) {
-                expecting = 0;
+                expectingParallel = 0;
                 invalid = 1;
                 return cmd;
             }
@@ -302,8 +302,8 @@ struct cmd *parsesequence(char **ps, char *es) {
 
     cmd = parseparallel(ps, es); // Set to a parallel command if it is
 
-    if (peek(ps, es, ";")) {    // Is there a sequential command?
-        gettoken(ps, es, 0, 0); // Remove the operator
+    if (!invalid && peek(ps, es, ";")) { // Is there a sequential command?
+        gettoken(ps, es, 0, 0);          // Remove the operator
         cmd = sequencecmd(cmd, parseline(ps, es));
     }
 
