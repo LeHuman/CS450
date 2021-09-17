@@ -10,8 +10,10 @@ I used Debian.
 ### How to run
 
 Run the following command after the binary is generated.
-Give execution privileges if necessary.
 > ./hwsh.out
+
+Give execution privileges if necessary with this command.
+> chmod +x hwsh.out
 
 ### Test Cases
 The following are the test cases used to test this implementation of the `&` and `;` operators.
