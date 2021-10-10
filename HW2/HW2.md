@@ -1,11 +1,29 @@
----
+...
 geometry:
--                 margin=10mm
--                 landscape
-pagesize:         letter
-classoption:      table
-header-includes:  \rowcolors{2}{gray!5}{gray!10}
----
+-               margin=2cm
+-               landscape
+-               letterpaper
+classoption:    table
+documentclass:  extarticle
+urlcolor:       blue
+fontsize:       11pt
+output:         pdf_document
+...
+
+\rowcolors{2}{gray!10}{gray!5}
+
+\pagenumbering{gobble}
+\newgeometry{margin=5cm}
+
+\title{CS450 HW2}
+\author{Isaias Rivera}
+\date{Oct 11, 2020}
+
+\begin{titlepage}
+\maketitle
+\end{titlepage}
+
+\newgeometry{margin=10mm, vmargin={10mm, 5cm}}
 
 # Task 1 - Trace close(fd)
 
@@ -60,3 +78,10 @@ header-includes:  \rowcolors{2}{gray!5}{gray!10}
 +--------------------------------------------------------------------------+-----------------------------------------+------------------------------------------+--------------------------------------+
 |                                                                          |                                         | **`printf` return value of `close(fd)`** | test.c : 8 : **`main`**              |
 +--------------------------------------------------------------------------+-----------------------------------------+------------------------------------------+--------------------------------------+
+
+## Code Blocks
+
+\newpage
+<!-- \restoregeometry -->
+
+# Task 2 - System Call countTraps()
