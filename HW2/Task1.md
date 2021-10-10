@@ -1,17 +1,46 @@
 # Task 1 - Trace close(fd)
 
-| Kernel                                                                                                                               | Hardware                                                  | User                                                       | File                    |
-| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------- | ----------------------- |
-|                                                                                                                                      |                                                           | Define uninitialized `fd`<br>> `call close(fd)` Trap to OS | test.c : `main`         |
-|                                                                                                                                      | Build trapframe `tf` for system call<br>> `call trap(tf)` |                                                            | trapasm.S : `alltraps`  |
-| Set current process' `trapframe`<br>> `call syscall()`                                                                               |                                                           |                                                            | trap.c : `trap`         |
-| Get trap `num` from the current process `curproc`<br>`syscalls[num] = sys_close`<br>> `call sys_close()`                             |                                                           |                                                            | syscall.c : `syscall`   |
-| Get file descriptor `fd` and struct file `f` from current process<br> zero `fd` refrence in current process<br>> `call fileclose(f)` |                                                           |                                                            | sysfile.c : `sys_close` |
-| Decrement `f->ref` count<br>**`f->ref` is now negative**<br>> `return` to `sys_close`                                                |                                                           |                                                            | file.c : `fileclose`    |
-| > `return 0` to `syscall`                                                                                                            |                                                           |                                                            | sysfile.c : `sys_close` |
-| Set `curproc` return value `tr->eax` to `0`<br>> `return` to `trap`                                                                  |                                                           |                                                            | syscall.c : `syscall`   |
-| > `return` to `alltraps`                                                                                                             |                                                           |                                                            | trap.c : `trap`         |
-|                                                                                                                                      | Pop `trapframe`                                           |                                                            | trapasm.S : `trapret`   |
-|                                                                                                                                      | **Interrupt** : `call alltraps(T_PGFLT)`                  |                                                            | vectors.S : `vector14`  |
-|                                                                                                                                      | Build trapframe `tf` for system call<br>> `call trap(tf)` |                                                            | trapasm.S : `alltraps`  |
-| `tf->trapno` of `14` indicates user space fault<br>**Print page fault**<br>Set current process as `killed = 1`<br>> `call exit()`    |                                                           |                                                            | trap.c : `trap`         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+|                              Kernel                               |                 Hardware                 |           User            |          File           |
++===================================================================+==========================================+===========================+=========================+
+|                                                                   |                                          | Define uninitialized `fd` | test.c : `main`         |
+|                                                                   |                                          | > `call close(fd)`        |                         |
+|                                                                   |                                          | Trap to OS                |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+|                                                                   | Build trapframe `tf` for system call     |                           | trapasm.S : `alltraps`  |
+|                                                                   | > `call trap(tf)`                        |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| Set current process `trapframe`                                   |                                          |                           | trap.c : `trap`         |
+| > `call syscall()`                                                |                                          |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| Get trap `num` from the current process `curproc`                 |                                          |                           | syscall.c : `syscall`   |
+| `syscalls[num] = sys_close`                                       |                                          |                           |                         |
+| > `call sys_close()`                                              |                                          |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| Get file descriptor `fd` and struct file `f` from current process |                                          |                           | sysfile.c : `sys_close` |
+| zero `fd` refrence in current process                             |                                          |                           |                         |
+| > `call fileclose(f)`                                             |                                          |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| Decrement `f->ref` count                                          |                                          |                           | file.c : `fileclose`    |
+| **`f->ref` is now negative**                                      |                                          |                           |                         |
+| > `return` to `sys_close`                                         |                                          |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| > `return 0` to `syscall`                                         |                                          |                           | sysfile.c : `sys_close` |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| Set `curproc` return value `tr->eax` to `0`                       |                                          |                           | syscall.c : `syscall`   |
+| > `return` to `trap`                                              |                                          |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| > `return` to `alltraps`                                          |                                          |                           | trap.c : `trap`         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+|                                                                   | Pop `trapframe`                          |                           | trapasm.S : `trapret`   |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+|                                                                   | **Interrupt** : `call alltraps(T_PGFLT)` |                           | vectors.S : `vector14`  |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+|                                                                   | Build trapframe `tf` for system call     |                           | trapasm.S : `alltraps`  |
+|                                                                   | > `call trap(tf)`                        |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
+| `tf->trapno` of `14` indicates user space fault                   |                                          |                           | trap.c : `trap`         |
+| **Print page fault**                                              |                                          |                           |                         |
+| Set current process as `killed = 1`                               |                                          |                           |                         |
+| > `call exit()`                                                   |                                          |                           |                         |
++-------------------------------------------------------------------+------------------------------------------+---------------------------+-------------------------+
