@@ -1,4 +1,4 @@
-...
+---
 geometry:
 -               margin=2cm
 -               landscape
@@ -24,6 +24,7 @@ output:         pdf_document
 \end{titlepage}
 
 \newgeometry{margin=10mm, vmargin={10mm, 5cm}}
+\pagenumbering{arabic}
 
 # Task 1 - Trace close(fd)
 
@@ -82,6 +83,5 @@ output:         pdf_document
 ## Code Blocks
 
 \newpage
-<!-- \restoregeometry -->
 
 # Task 2 - System Call countTraps()
