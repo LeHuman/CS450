@@ -1,5 +1,4 @@
 {
     "markdown-pdf.orientation": "landscape",
-    "markdown-pdf.format": "A3",
-    "pandoc.pdfOptString": "-V geometry:landscape -V papersize:a3"
+    "markdown-pdf.format": "A3"
 }
