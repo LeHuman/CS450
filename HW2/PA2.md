@@ -97,17 +97,18 @@ header-includes: |
 
 In order to implement the system call `countTraps` I had add additional kernel code.
 `countTraps`, as the assignment describes it, should count whenever any trap occurs.
-However, because I was somewhat confused as to what the assignment is asking for exactly when it comes to each *type* of trap,
-I implemented counters for every process which count *both* the traps that occur and the system calls that get called.
+However, because I was confused as to what the assignment was asking for exactly,
+I implemented counters for every individual process which counts *both* the traps that occur and the system calls that get called.
 
 Each process is represented with the struct `proc`. I took advantage of this by adding the attributes `trapcounts` and `syscounts`.
 Both of these attributes are arrays that are long enough to store a counter for each possible system call and trap.
 With these counters I can now increment them whenever we enter `trap` or `syscall`, using `myproc` to get the current running process.
-However, before I can increment the arrays, I need to define which indexes were for what trap number or system call number.
+I can also reset them whenever a process is reaped when running `wait`.
+However, before I can increment the arrays, I needed to define which indexes were for what trap number or system call number.
 
 ### Counting Traps to OS
 
-For the trap numbers, because the actual numbers in `traps.h` ranged from `0-500`, I had to map each `trapno` to the numbers `0-22` to make it cleaner to implement.
+For the trap numbers, because the actual numbers in `traps.h` ranged from `0-500` noncontinuous, I had to map each `trapno` to the numbers `0-22` to make it cleaner to implement.
 This was done with the function `trapnos`.
 
 I also needed a way to represent each `trapno` with a string. I did this with the array `trapnames`, where each `trapno` mapped to the appropriate string.
@@ -223,7 +224,7 @@ int main(int argc, char *argv[]) {
 
 \mbox{}
 
-Because the base program `test.c` is started by the shell `sh.c` it starts with 2 traps are already counted.
+Because the base program `test.c` is started by the shell `sh.c` it starts with 2 traps already counted.
 One is `sbrk` from the `malloc` at `sh.c:200` and the other is the `exec` at `sh.c:78`.
 And because `countTraps` is also a system call, that too gets counted for a total of +3 for the system call count.
 
