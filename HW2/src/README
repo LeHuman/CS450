@@ -1,25 +1,3 @@
-# xv6 on Windows using WSL and VSCode
-
-## Installing
-
-TBA
-
-## Usage
-
-TBA
-
-## Software
-
-- [WSL2](https://docs.microsoft.com/en-us/windows/wsl/setup/environment)
-- [VSCode](https://code.visualstudio.com/)
-
-## Refrences
-
-- <https://shawnzhong.com/2019/03/25/co-debug-xv6-on-windows-using-vscode/>
-- <https://github.com/sballan/xv6-public>
-
-## Original README
-
 NOTE: we have stopped maintaining the x86 version of xv6, and switched
 our efforts to the RISC-V version
 (<https://github.com/mit-pdos/xv6-riscv.git>)
