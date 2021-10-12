@@ -128,8 +128,6 @@ I also represented each system call number with a string with the array `sysname
 After all this, I can now increment the array when a system call is called. This would be in the `syscall` function, where I get the current running process' struct and increment the appropriate `syscounts` index.
 The index depends on the system call number given to `syscall`.
 
-\newpage
-
 ### Implementing the Actual System Call
 
 Now that I can count each trap and system call, I need to let the user print it.
@@ -144,6 +142,8 @@ One more thing that I also needed to do for both counters is reset them whenever
 To call the function in a user process, it first has to include `"user.h"` and then it can call the function `countTraps()`.
 The system call will then print everything out onto the console.
 `countTraps` also returns the total number of traps that occurred.
+
+\newpage
 
 ## Changes made
 
