@@ -12,7 +12,7 @@ The *executables* `xv6.img` and `fs.img` are included in the source folder.
 
 ## Building
 
-To build, run the following command in the same directory in the source folder.
+To build, run the following command in the source folder.
 
 ``` sh
 make

@@ -25,7 +25,7 @@ header-includes: |
 
 \maketitle
 
-\restoregeometry
+\newgeometry{margin=1cm}
 \footnotesize
 \blandscape
 # Task 1 - Trace close(fd)
