@@ -144,7 +144,7 @@ To call the function in a user process, it first has to include `"user.h"` and t
 The system call will then print everything out onto the console.
 `countTraps` also returns the total number of traps that occurred.
 
-## Diffs
+## Changes made
 
 +-------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | File Name &nbsp; &nbsp; |                                                                                                                                                                             Changes                                                                                                                                                                              |
@@ -319,7 +319,6 @@ void testCase3(void) {
 
     for (i = 0; i < 10; i++) {
         if (fork() == 0) {
-            // Should not add to parent counter
             close(1);
             fd = open("backup", O_CREATE | O_RDWR);
             dup(fd);
@@ -371,19 +370,7 @@ This case is also another example of how a child process does not add onto the p
 ``` C
 // +124 syscalls
 void testCase4(void) {
-    int p[2], i, fd;
-    char *arg = "Hi";
-    char *err = (char *)-1;
-    char inbuf[16];
-    struct stat fs;
-    for (i = 0; i < 10; i++) {
-        if (fork() == 0) {
-            exec("echo", &arg);
-        }
-        wait();
-        kill(0);
-        getpid();
-    }
+    ... // Initial part omitted due to space, it is the same as testCase3
     for (i = 0; i < 8; i++) {
         sleep(0);
         uptime();
@@ -443,5 +430,5 @@ void testCase4(void) {
 
 \mbox{}
 
-This test case calls each system call possible at a set number of times.
+This test case adds on to test case 3. It calls each system call possible at a set number of times.
 Keeping in mind that `sbrk` is called once beforehand, these counters all add up to match the for loops for each respective system call.
