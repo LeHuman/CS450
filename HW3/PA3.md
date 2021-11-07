@@ -90,7 +90,7 @@ FreeSharePage uses the key to identify and deallocate the range of shared pages.
 
 ## Design
 
-In order to implement the system call `GetSharedPage` and `FreeSharedPage` we had to add additional kernel code.
+In order to implement the system call `GetSharedPage` and `FreeSharedPage` we had to add additional kernel code. 
 
 \newpage
 
@@ -118,18 +118,257 @@ In order to implement the system call `GetSharedPage` and `FreeSharedPage` we ha
 
 ## Test Cases
 
-### Test Case 1
+Every test case was run multiple times to ensure that the OS does not panic for any reason.
+The test code is placed inside a test program's main function.
+
+### Test Case 0
 
 #### Code
 
 ``` C
+#include "types.h"
+#include "stat.h"
+#include "user.h"
+int main(int argc, char *argv[]) {
+    char *testPage = GetSharedPage(8, 64);
+    exit();
+}
 ```
 
 #### Output
 
 ```
+$ test0 
+Shared page not freed! pid:3 id:8 refs:0
 ```
 
 #### Description
 
 \mbox{}
+
+This test case shows what occurs when a shared page is not freed by a process.
+This indicates that the reference counter is working.
+This test case also shows that setup for all the other test cases with what `#includes` to have and the `main` function.
+
+### Test Case 1
+
+#### Code
+
+``` C
+char *testPage = GetSharedPage(4, 8);
+strcpy(testPage, "Hello!");
+printf(1, "%s\n", testPage);
+FreeSharedPage(4);
+exit();
+```
+
+#### Output
+
+```
+$ test0
+Hello!
+```
+
+#### Description
+
+\mbox{}
+
+This test case simply shows that we can write and read from a shared page.
+
+\newpage
+
+### Test Case 2
+
+#### Code
+
+``` C
+char *testPage = GetSharedPage(4, 8);
+strcpy(testPage, "Hello child!");
+if (fork() == 0) {
+    char *testPage = GetSharedPage(4, 8);
+    printf(1, "%s\n", testPage);
+    FreeSharedPage(4);
+    exit();
+}
+wait();
+FreeSharedPage(4);
+exit();
+```
+
+#### Output
+
+```
+$ test0
+Hello child!
+```
+
+#### Description
+
+\mbox{}
+
+Because our implementation does not specificlly state that child processes get passed the same shared pages, they must call
+the new syscalls themselves. With that said, this test case creates a child proccess that accesses the same shared page as the parent and prints whatever the parent has put there. This shows that communication between a child process and a parent process
+is possible.
+
+\newpage
+
+### Test Case 3
+
+#### Code
+
+``` C
+char *testPage = GetSharedPage(4, 8);
+strcpy(testPage, "Hello child!");
+if (fork() == 0) {
+    char *testPage = GetSharedPage(4, 8);
+    printf(1, "%s\n", testPage);
+    FreeSharedPage(4);
+    exit();
+}
+wait();
+FreeSharedPage(4);
+exit();
+```
+
+#### Output
+
+```
+$ test0
+Hello child!
+```
+
+#### Description
+
+\mbox{}
+
+Because our implementation does not specificlly state that child processes get passed the same shared pages, they must call
+the new syscalls themselves. With that said, this test case creates a child proccess that accesses the same shared page as the parent and prints whatever the parent has put there. This shows that communication between a child process and a parent process
+is possible.
+
+\newpage
+
+### Test Case 4
+
+#### Code
+
+``` C
+if (fork() == 0) {
+    sleep(100);
+    char *tx = GetSharedPage(0, 6);
+    char *rx = GetSharedPage(6, 6);
+    printf(1, "Child!\n");
+}
+exit();
+```
+
+#### Output
+
+```
+$ test0
+$ Child!
+Shared page not freed! pid:10 id:0 refs:0
+Shared page not freed! pid:10 id:6 refs:0
+zombie!
+```
+
+#### Description
+
+\mbox{}
+
+This test case was used to show what happens when a zombie child attempts to create a shared page and not free it.
+It shows how abandoned processes are still handled.
+
+\newpage
+
+### Test Case 5
+
+#### Code
+\tiny
+
+``` C
+// test0.c
+int main(int argc, char *argv[]) {
+    char *tx = GetSharedPage(0, 6);
+    char *rx = GetSharedPage(6, 6);
+    tx = GetSharedPage(0, 6);
+    tx = GetSharedPage(0, 6);
+
+    while (tx[0] != 0) {
+    }
+    strcpy(tx, "0: Hello!");
+
+    while (rx[0] == 0) {
+    }
+    printf(1, "0 Received: %s\n", rx);
+    memset(rx, 0, 4096);
+
+    while (tx[0] != 0) {
+    }
+    strcpy(tx, "0: says Goodbye!");
+
+    while (rx[0] == 0) {
+    }
+    printf(1, "0 Received: %s\n", rx);
+    memset(rx, 0, 4096);
+
+    printf(1, "0 %p %d\n", tx, FreeSharedPage(0));
+    printf(1, "0 %p %d\n", rx, FreeSharedPage(6));
+
+    exit();
+}
+// test1.c
+int main(int argc, char *argv[]) {
+    char *rx = GetSharedPage(0, 6);
+    char *tx = GetSharedPage(6, 6);
+    tx = GetSharedPage(6, 6);
+    tx = GetSharedPage(6, 6);
+    tx = GetSharedPage(6, 6);
+
+    while (tx[0] != 0) {
+    }
+    strcpy(tx, "1: Hello!");
+
+    while (rx[0] == 0) {
+    }
+    sleep(10);
+    printf(1, "1 Received: %s\n", rx);
+    memset(rx, 0, 4096);
+
+    while (tx[0] != 0) {
+    }
+    strcpy(tx, "1: says Goodbye!");
+
+    while (rx[0] == 0) {
+    }
+    sleep(10);
+    printf(1, "1 Received: %s\n", rx);
+    memset(rx, 0, 4096);
+
+    sleep(20);
+    printf(1, "1 %p %d\n", rx, FreeSharedPage(0));
+    printf(1, "1 %p %d\n", tx, FreeSharedPage(6));
+    exit();
+}
+```
+\normalsize
+#### Output
+
+```
+test0|test1
+0 Received: 1: Hello!
+1 Received: 0: Hello!
+0 Received: 1: says Goodbye!
+0 7FFFA000 1
+0 7FFF4000 1
+1 Received: 0: says Goodbye!
+1 7FFFA000 0
+1 7FFF4000 0
+```
+
+#### Description
+
+\mbox{}
+
+This test case is an example of communication between two separate processes. The xv6 shell was modified to make the pipe `|` symbol to 
+only run programs in parallel to make this test case easy to run. Programs `test0` and `test1` are run concurrently with the following
+command `test0|test1`. Test program 1 has a few sleep functions to ensure each process prints on a separate line.
