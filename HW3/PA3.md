@@ -8,6 +8,7 @@ urlcolor:       blue
 fontsize:       11pt
 header-includes: |
     \rowcolors{2}{gray!10}{gray!5}
+    \usepackage{multicol}
 ...
 
 \normalsize
@@ -90,9 +91,20 @@ FreeSharePage uses the key to identify and deallocate the range of shared pages.
 
 ## Design
 
-In order to implement the system call `GetSharedPage` and `FreeSharedPage` we had to add additional kernel code. 
+Our idea for implementing `GetSharedPage` and `FreeSharedPage` was to add onto the `struct proc` in `proc.h` where each process would reference
+a set size of shared memory. This was done through various additional structs that keep track of the references and the actual pointers to memory,
+both virtual, relative to the process, and physical. This means that it does not matter which process first initializes the shared pages as each process references them the same.
 
-\newpage
+Each region of shared memory is represented by a `struct sharedRegion_t` which keeps track of whether this region is valid, the number of references, the number of pages that this region contains,
+and the array or pages themselves. These structs are independent of any program. Each program can reference multiple `sharedRegion_t`s with the `struct sharedReference_t`, this allows us to also
+check if a process has forgotten to free any shared references, as if the pointer is valid then the reference exists.
+
+Each `proc` also keeps track of the shared memory region within it's own memory space, as the shared memory space *grows* from the top at `KERNBASE` down to `0x0`. We also modified xv6 to ensure that
+, when allocating more memory, we do not go over any region of shared memory instead of just `KERNBASE`. This is done with the added `void *shaddr` pointer in `struct proc`.
+
+There were, however, some limitations to keep our implementation simple. We set a maximum limit to the number of share regions and pages per region, this allows keys to point to the
+actual index of each region when referenced by an array. We also are unable to resize the pages afterwards as that would involve having to remap the regions for each process and ensuring that nothing
+overlaps. Finally, the allocation of shared memory is very basic, in the sense that the shared memory region only grows and does not shrink after freeing shared memory.
 
 ## Major changes made
 
@@ -283,78 +295,97 @@ It shows how abandoned processes are still handled.
 ### Test Case 5
 
 #### Code
-\tiny
 
-``` C
-// test0.c
-int main(int argc, char *argv[]) {
-    char *tx = GetSharedPage(0, 6);
-    char *rx = GetSharedPage(6, 6);
-    tx = GetSharedPage(0, 6);
-    tx = GetSharedPage(0, 6);
+\mbox{}
 
-    while (tx[0] != 0) {
-    }
-    strcpy(tx, "0: Hello!");
+\scriptsize
 
-    while (rx[0] == 0) {
-    }
-    printf(1, "0 Received: %s\n", rx);
-    memset(rx, 0, 4096);
+\begin{multicols}{2}
+\begin{minipage}{0.5\textwidth}
 
-    while (tx[0] != 0) {
-    }
-    strcpy(tx, "0: says Goodbye!");
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{// test1.c}
+\DataTypeTok{int}\NormalTok{ main}\OperatorTok{(}\DataTypeTok{int}\NormalTok{ argc}\OperatorTok{,} \DataTypeTok{char} \OperatorTok{*}\NormalTok{argv}\OperatorTok{[])} \OperatorTok{\{}
+    \DataTypeTok{char} \OperatorTok{*}\NormalTok{rx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{0}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+    \DataTypeTok{char} \OperatorTok{*}\NormalTok{tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+\NormalTok{    tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+\NormalTok{    tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+\NormalTok{    tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
 
-    while (rx[0] == 0) {
-    }
-    printf(1, "0 Received: %s\n", rx);
-    memset(rx, 0, 4096);
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{tx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{!=} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    strcpy}\OperatorTok{(}\NormalTok{tx}\OperatorTok{,} \StringTok{"1: Hello!"}\OperatorTok{);}
 
-    printf(1, "0 %p %d\n", tx, FreeSharedPage(0));
-    printf(1, "0 %p %d\n", rx, FreeSharedPage(6));
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{rx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{==} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    sleep}\OperatorTok{(}\DecValTok{10}\OperatorTok{);}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"1 Received: \%s}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ rx}\OperatorTok{);}
+\NormalTok{    memset}\OperatorTok{(}\NormalTok{rx}\OperatorTok{,} \DecValTok{0}\OperatorTok{,} \DecValTok{4096}\OperatorTok{);}
 
-    exit();
-}
-// test1.c
-int main(int argc, char *argv[]) {
-    char *rx = GetSharedPage(0, 6);
-    char *tx = GetSharedPage(6, 6);
-    tx = GetSharedPage(6, 6);
-    tx = GetSharedPage(6, 6);
-    tx = GetSharedPage(6, 6);
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{tx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{!=} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    strcpy}\OperatorTok{(}\NormalTok{tx}\OperatorTok{,} \StringTok{"1: says Goodbye!"}\OperatorTok{);}
 
-    while (tx[0] != 0) {
-    }
-    strcpy(tx, "1: Hello!");
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{rx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{==} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    sleep}\OperatorTok{(}\DecValTok{10}\OperatorTok{);}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"1 Received: \%s}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ rx}\OperatorTok{);}
+\NormalTok{    memset}\OperatorTok{(}\NormalTok{rx}\OperatorTok{,} \DecValTok{0}\OperatorTok{,} \DecValTok{4096}\OperatorTok{);}
 
-    while (rx[0] == 0) {
-    }
-    sleep(10);
-    printf(1, "1 Received: %s\n", rx);
-    memset(rx, 0, 4096);
+\NormalTok{    sleep}\OperatorTok{(}\DecValTok{20}\OperatorTok{);}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"1 \%p \%d}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ rx}\OperatorTok{,}\NormalTok{ FreeSharedPage}\OperatorTok{(}\DecValTok{0}\OperatorTok{));}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"1 \%p \%d}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ tx}\OperatorTok{,}\NormalTok{ FreeSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{));}
+\NormalTok{    exit}\OperatorTok{();}
+\OperatorTok{\}}
+\end{Highlighting}
+\end{Shaded}
 
-    while (tx[0] != 0) {
-    }
-    strcpy(tx, "1: says Goodbye!");
+\end{minipage}
 
-    while (rx[0] == 0) {
-    }
-    sleep(10);
-    printf(1, "1 Received: %s\n", rx);
-    memset(rx, 0, 4096);
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{// test0.c}
+\DataTypeTok{int}\NormalTok{ main}\OperatorTok{(}\DataTypeTok{int}\NormalTok{ argc}\OperatorTok{,} \DataTypeTok{char} \OperatorTok{*}\NormalTok{argv}\OperatorTok{[])} \OperatorTok{\{}
+    \DataTypeTok{char} \OperatorTok{*}\NormalTok{tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{0}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+    \DataTypeTok{char} \OperatorTok{*}\NormalTok{rx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+\NormalTok{    tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{0}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
+\NormalTok{    tx }\OperatorTok{=}\NormalTok{ GetSharedPage}\OperatorTok{(}\DecValTok{0}\OperatorTok{,} \DecValTok{6}\OperatorTok{);}
 
-    sleep(20);
-    printf(1, "1 %p %d\n", rx, FreeSharedPage(0));
-    printf(1, "1 %p %d\n", tx, FreeSharedPage(6));
-    exit();
-}
-```
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{tx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{!=} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    strcpy}\OperatorTok{(}\NormalTok{tx}\OperatorTok{,} \StringTok{"0: Hello!"}\OperatorTok{);}
+
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{rx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{==} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"0 Received: \%s}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ rx}\OperatorTok{);}
+\NormalTok{    memset}\OperatorTok{(}\NormalTok{rx}\OperatorTok{,} \DecValTok{0}\OperatorTok{,} \DecValTok{4096}\OperatorTok{);}
+
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{tx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{!=} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    strcpy}\OperatorTok{(}\NormalTok{tx}\OperatorTok{,} \StringTok{"0: says Goodbye!"}\OperatorTok{);}
+
+    \ControlFlowTok{while} \OperatorTok{(}\NormalTok{rx}\OperatorTok{[}\DecValTok{0}\OperatorTok{]} \OperatorTok{==} \DecValTok{0}\OperatorTok{)} \OperatorTok{\{}
+    \OperatorTok{\}}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"0 Received: \%s}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ rx}\OperatorTok{);}
+\NormalTok{    memset}\OperatorTok{(}\NormalTok{rx}\OperatorTok{,} \DecValTok{0}\OperatorTok{,} \DecValTok{4096}\OperatorTok{);}
+
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"0 \%p \%d}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ tx}\OperatorTok{,}\NormalTok{ FreeSharedPage}\OperatorTok{(}\DecValTok{0}\OperatorTok{));}
+\NormalTok{    printf}\OperatorTok{(}\DecValTok{1}\OperatorTok{,} \StringTok{"0 \%p \%d}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\OperatorTok{,}\NormalTok{ rx}\OperatorTok{,}\NormalTok{ FreeSharedPage}\OperatorTok{(}\DecValTok{6}\OperatorTok{));}
+
+\NormalTok{    exit}\OperatorTok{();}
+\OperatorTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\end{multicols}
+
 \normalsize
+
 #### Output
 
 ```
-test0|test1
+$ test0|test1
 0 Received: 1: Hello!
 1 Received: 0: Hello!
 0 Received: 1: says Goodbye!
