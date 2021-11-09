@@ -14,7 +14,7 @@ An example binary `memLeakTest` is included.
 
 ## Building
 
-To build, run the following command in the source folder.
+To build, run the following command in the valgrind-src folder.
 
 ``` sh
 gcc -DTEST=X -g memLeakTest.c -o memLeakTest
