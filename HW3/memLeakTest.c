@@ -24,7 +24,7 @@ void test6() {
 
 int main() {
     printf("Running Test\n");
-#if TEST == 0 // Simple Malloc to show that it is working
+#if TEST == 0 // Simple Malloc to show that valgrind is working
     void *ptr = malloc(512);
 #elif TEST == 1 // Show that a loop is also detected
     for (size_t i = 0; i < 10; i++) {
@@ -42,8 +42,29 @@ int main() {
     sPtr = malloc(4096);
 #elif TEST == 5 // Show that malloc in function also shows up
     test5();
-#else           // Show that malloc in a function to a static pointer also causes diffrent behavior
+#elif TEST == 6 // Show that malloc in a function to a static pointer also causes diffrent behavior
     test6();
+#elif TEST == 7 // show that calloc also leaks similarly
+    int n, i;
+    n = 10;
+    int *ptr = (int *)calloc(n, sizeof(int));
+    for (i = 0; i < n; i++) {
+        ptr[i] = i + 1;
+    }
+    return 0;
+#elif TEST == 8 // show that realloc also leaks
+    int n, i;
+    n = 10;
+    int *ptr = (int *)calloc(n, sizeof(int));
+    for (i = 0; i < n; i++) {
+        ptr[i] = i + 1;
+    }
+    n = 20;
+    ptr = realloc(ptr, n * sizeof(int));
+    for (i = 0; i < n; i++) {
+        ptr[i] = i + 1;
+    }
+    return 0;
 #endif
     printf("Exiting\n");
     sleep(1);

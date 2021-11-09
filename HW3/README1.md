@@ -18,7 +18,7 @@ To build, run the following command in the source folder.
 gcc -DTEST=X -g memLeakTest.c -o memLeakTest
 ```
 
-Where `X` in `-DTEST=X` should be the test number `0-6`
+Where `X` in `-DTEST=X` should be the test number `0-8`
 
 ## Executing
 
