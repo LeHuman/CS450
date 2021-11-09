@@ -7,8 +7,8 @@ documentclass:  extarticle
 urlcolor:       blue
 fontsize:       11pt
 header-includes: |
-    \rowcolors{2}{gray!10}{gray!5}
     \usepackage{multicol}
+    \usepackage{graphicx}
 ...
 
 \normalsize
@@ -18,7 +18,9 @@ header-includes: |
 \title{%
   Programming Assignment 3 \\
   CS450 Fall, 2021}
-\author{David Anderson, and Isaias Rivera}
+\author{David Anderson, and Isaias Rivera \\
+A20472540, and A20442116
+}
 \date{Nov 8, 2020}
 
 \maketitle
@@ -26,9 +28,216 @@ header-includes: |
 \newgeometry{margin=1in}
 \normalsize
 
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
 # Task 1 - Valgrind Memory Leaks
 
 ## Test Cases
+
+### Equivalence Partitioning
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/eqp.png}
+\end{center}
+
+We used a simple approach to partitioning Valgrind tests by demonstrating leaks after using several of the main C standard library functions for dynamic memory allocation `malloc`, `calloc`, `realloc`. The allocator expands or resizes the heap according to these requests. `malloc` allocates the specified number of bytes, `realloc` increases or decreases the size of the specified block of memory, and `calloc` allocates the number of bytes like `malloc`, but initializes them to zero. `calloc` also takes two arguments, the number of variables to allocate in memory, and the size in bytes of a single variable.  
+In general, we found it useful to demonstrate a variety of `malloc` implementations and their different effects on the memory leakage checks by Valgrind. (Tests 0 - 6) In LEAK SUMMARY of Test 2, for instance, can see how the `struct` element pointers were lost directly and that the memory `malloc`'d was lost indirectly. We see similar behavior for Test 3 without a `struct`. For Test 4, interestingly we see that the memory is in the 'still reachable' category because of its global pointer declaration. Tests 5 and 6 demonstrate expected behavior when calling `malloc` via a function call. Tests 7 and 8 are used to demonstrate that memory is leaked the same way it is when allocated by `malloc` without being freed. In Test 7 memory is allocated and zero'd, then an array is instantiated. We see that the length of the array is the amount of memory leaked as expected. Test 8 an array is instantiated and reallocated, with the expected amount of memory leaked. The variation in Valgrind `memcheck` results demonstrated by the variations of `malloc` implementations would be similar in the different usages of `calloc` and `realloc`.
+
+\newpage
+### Test Case 0
+
+#### Code
+
+\scriptsize
+
+``` C
+#include "stdio.h"
+#include "stdlib.h"
+#include <unistd.h>
+
+typedef struct test_t {
+    int a;
+    char *str;
+    char *str2;
+} test_t;
+
+static void *sPtr;
+
+void test5() {
+    void *ptr = malloc(1024);
+}
+
+void test6() {
+    sPtr = malloc(4096);
+}
+
+int main() {
+    printf("Running Test\n");
+    void *ptr = malloc(512);
+    printf("Exiting\n");
+    sleep(1);
+}
+```
+
+\normalsize
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test0.png}
+\end{center}
+
+#### Note
+
+\mbox{}
+
+Every other test case simply replaces what is inside the main for this test case.
+
+\newpage
+
+### Test Case 1
+
+#### Code
+
+``` C
+for (size_t i = 0; i < 10; i++) {
+    void *ptr = malloc(4096);
+}
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test1.png}
+\end{center}
+
+### Test Case 2
+
+#### Code
+
+``` C
+test_t *test = malloc(sizeof(test_t));
+test->str = malloc(1024);
+test->str2 = "StaticString!";
+test->a = 200;
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test2.png}
+\end{center}
+
+\newpage
+
+### Test Case 3
+
+#### Code
+
+``` C
+void *ptr = malloc(sizeof(void *));
+*((void **)ptr) = malloc(4096);
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test3.png}
+\end{center}
+
+### Test Case 4
+
+#### Code
+
+``` C
+sPtr = malloc(4096);
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test4.png}
+\end{center}
+
+\newpage
+
+### Test Case 5
+
+#### Code
+
+``` C
+test5();
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test5.png}
+\end{center}
+
+### Test Case 6
+
+#### Code
+
+``` C
+test6();
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test6.png}
+\end{center}
+
+\newpage
+
+### Test Case 7
+
+#### Code
+
+``` C
+int n, i;
+n = 10;
+int *ptr = (int *)calloc(n, sizeof(int));
+for (i = 0; i < n; i++) {
+    ptr[i] = i + 1;
+}
+```
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test7.png}
+\end{center}
+
+### Test Case 8
+
+#### Code
+
+\scriptsize
+
+``` C
+int n, i;
+n = 10;
+int *ptr = (int *)calloc(n, sizeof(int));
+for (i = 0; i < n; i++) {
+    ptr[i] = i + 1;
+}
+n = 20;
+ptr = realloc(ptr, n * sizeof(int));
+for (i = 0; i < n; i++) {
+    ptr[i] = i + 1;
+}
+```
+
+\normalsize
+
+#### Output
+
+\begin{center}
+    \includegraphics[height=0.3\textwidth]{./img/test8.png}
+\end{center}
 
 \newpage
 
@@ -107,7 +316,7 @@ actual index of each region when referenced by an array. We also are unable to r
 overlaps. Finally, the allocation of shared memory is very basic, in the sense that the shared memory region only grows and does not shrink after freeing shared memory.
 
 ## Major changes made
-
+\rowcolors{2}{gray!10}{gray!5}
 +-----------------+-------------------------------------------------------------------------------------------------------------------------+
 |    File Name    |                                                         Changes                                                         |
 +=================+=========================================================================================================================+
@@ -120,10 +329,15 @@ overlaps. Finally, the allocation of shared memory is very basic, in the sense t
 | **`sysproc.c`** | Added the syscall definitions for `GetSharedPage` and `FreeSharedPage`                                                  |
 +-----------------+-------------------------------------------------------------------------------------------------------------------------+
 | **`proc.c`**    | Added a call to `deallocProcAllSharedVM` when processes are reaped                                                      |
+|                 | Initalize the `shaddr` pointer to `KERNBASE`                                                                            |
 +-----------------+-------------------------------------------------------------------------------------------------------------------------+
 | **`proc.h`**    | Added definition for `sharedRegion_t` struct type, which is used to store a shared region in memory                     |
 |                 | Added definition for `sharedReference_t` struct type, which is used to reference a shared region in memory by a process |
 |                 | Added the `shared` array of `sharedReference_t`s for each proc                                                          |
++-----------------+-------------------------------------------------------------------------------------------------------------------------+
+| **`defs.h`**    | Added definition for `deallocProcAllSharedVM` to be used by `proc.c`                                                    |
++-----------------+-------------------------------------------------------------------------------------------------------------------------+
+| **`sh.c`**      | Modified pipe symbol to only run programs in parallel, this is purely done for testing                                  |
 +-----------------+-------------------------------------------------------------------------------------------------------------------------+
 
 \newpage
@@ -218,8 +432,8 @@ Hello child!
 
 \mbox{}
 
-Because our implementation does not specificlly state that child processes get passed the same shared pages, they must call
-the new syscalls themselves. With that said, this test case creates a child proccess that accesses the same shared page as the parent and prints whatever the parent has put there. This shows that communication between a child process and a parent process
+Because our implementation does not specifically state that child processes get passed the same shared pages, they must call
+the new syscalls themselves. With that said, this test case creates a child process that accesses the same shared page as the parent and prints whatever the parent has put there. This shows that communication between a child process and a parent process
 is possible.
 
 \newpage
@@ -400,6 +614,7 @@ $ test0|test1
 
 \mbox{}
 
-This test case is an example of communication between two separate processes. The xv6 shell was modified to make the pipe `|` symbol to 
+This test case is an example of communication between two separate processes. The xv6 shell was modified to make the pipe `|` symbol to
 only run programs in parallel to make this test case easy to run. Programs `test0` and `test1` are run concurrently with the following
 command `test0|test1`. Test program 1 has a few sleep functions to ensure each process prints on a separate line.
+Unlike test case 2, these are two separate processes communicating.

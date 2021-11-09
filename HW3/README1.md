@@ -7,6 +7,8 @@ fontsize:       11pt
 
 # CS450 PA3 - Part 1 - How to build and execute
 
+## David Anderson - A20472540, and Isaias Rivera - A20442116
+
 The following instructions assume that you are running these commands on a linux system with `valigrind` and `build-essential` installed.
 An example binary `memLeakTest` is included.
 
